@@ -38,8 +38,9 @@ def is_ablation(row):
 def collect_results(results_dir):
     """收集 ML 与 DL 的全部测试集结果。"""
     rows = []
-    for path in glob.glob(os.path.join(results_dir, "ml", "*_test.json")):
-        rows.append(load_json(path))
+    ml_summary = os.path.join(results_dir, "ml", "summary.json")
+    if os.path.exists(ml_summary):
+        rows += list(load_json(ml_summary).values())
     for path in glob.glob(os.path.join(results_dir, "models", "*_test.json")):
         rows.append(load_json(path))
     return rows

@@ -289,9 +289,9 @@ def build_report(doc):
          "搭建字符级双层 BiLSTM，初始采用均值池化与普通二分类交叉熵损失。发现"
          "验证集 F1 存在提升空间，且模型对垃圾短信召回不足。"),
         ("阶段三：引入注意力池化与类别加权。",
-         "将均值池化替换为注意力池化（消融实验证实可提升 F1）；同时按训练集正负"
-         "样本比设置 pos_weight 加权损失，缓解垃圾/正常样本不均衡问题，显著提升"
-         "召回率。"),
+         "将均值池化替换为注意力池化，让模型自适应关注判定垃圾短信的关键字符；同时按"
+         "训练集正负样本比设置 pos_weight 加权损失，缓解垃圾/正常样本不均衡问题。"
+         "消融实验表明池化方式与加权损失对结果的影响（见 5.1 节）。"),
         ("阶段四：训练策略调优。",
          "在 BiLSTM 上网格搜索学习率（2e-4/5e-4/1e-3）、Dropout（0.3/0.5）、"
          "批大小（256/512），采用 ReduceLROnPlateau 学习率衰减、梯度裁剪与"
@@ -299,34 +299,60 @@ def build_report(doc):
         ("阶段五：多模型对比与特征融合。",
          "在调优后的训练策略下训练 TextCNN、Transformer 及 BiLSTM+TextCNN 混合"
          "模型；混合模型通过全局序列语义与局部 n-gram 特征的互补融合，取得了"
-         "最优的综合性能。"),
+         "深度学习模型中最优的综合性能，逼近最强的传统机器学习基线。"),
     ]:
         p = add_p(doc, title, size=10.5)
         p.runs[0].font.bold = True
         add_p(doc, desc, size=10.5, indent=True)
 
     add_heading(doc, "5.1 消融实验", 2)
-    abl_rows = []
+    abl_variants = []  # (variant, row)
     for r in all_rows:
         if not isinstance(r.get("hyperparams"), dict):
             continue
         hp = r["hyperparams"]
         if hp.get("model") == "bilstm" and hp.get("level") == "char":
-            variant = "基础 BiLSTM"
             if hp.get("no_pos_weight"):
-                variant = "BiLSTM（去掉类别加权）"
+                abl_variants.append(("BiLSTM（注意力池化，无类别加权）", r))
             elif hp.get("pool") == "mean":
-                variant = "BiLSTM（均值池化）"
+                abl_variants.append(("BiLSTM（均值池化，有类别加权）", r))
             elif hp.get("pool") == "attn":
-                variant = "BiLSTM（注意力池化+类别加权）"
-            t = r["test"]
+                abl_variants.append(("BiLSTM（注意力池化，有类别加权）", r))
+    order = ["BiLSTM（注意力池化，有类别加权）", "BiLSTM（均值池化，有类别加权）",
+             "BiLSTM（注意力池化，无类别加权）"]
+    abl_variants.sort(key=lambda x: order.index(x[0]) if x[0] in order else 99)
+    if abl_variants:
+        abl_rows = []
+        for variant, r in abl_variants:
+            t, v = r["test"], r.get("val", {})
             abl_rows.append([variant, fmt(t["f1"]), fmt(t["recall"]),
-                             fmt(t["precision"]), fmt(t["accuracy"])])
-    if abl_rows:
-        add_table(doc, ["配置", "F1", "Recall", "Precision", "Accuracy"],
-                  abl_rows, [7, 2.2, 2.2, 2.4, 2.4])
-        add_p(doc, "表 1  BiLSTM 消融实验（字符级，测试集）", size=9,
+                             fmt(t["precision"]), fmt(t["accuracy"]),
+                             fmt(v.get("f1"), 4)])
+        add_table(doc,
+                  ["配置", "测试 F1", "测试 Recall", "测试 Precision",
+                   "测试 Accuracy", "验证 F1"],
+                  abl_rows, [6.2, 2.0, 2.3, 2.5, 2.5, 1.9])
+        add_p(doc, "表 1  BiLSTM 消融实验（字符级）", size=9,
               align=WD_ALIGN_PARAGRAPH.CENTER)
+        if any("无类别加权" in v for v, _ in abl_variants):
+            weight_row = next((r for v, r in abl_variants
+                               if v == "BiLSTM（注意力池化，有类别加权）"), None)
+            no_w_row = next((r for v, r in abl_variants if "无类别加权" in v), None)
+            if weight_row and no_w_row:
+                d_rec = weight_row["test"]["recall"] - no_w_row["test"]["recall"]
+                d_f1 = weight_row["test"]["f1"] - no_w_row["test"]["f1"]
+                rec_desc = f"去掉加权后召回率下降 {abs(d_rec):.4f}" if d_rec > 0 \
+                    else f"去掉加权后召回率反而上升 {abs(d_rec):.4f}"
+                f1_desc = f"F1 下降 {abs(d_f1):.4f}" if d_f1 > 0 \
+                    else f"F1 上升 {abs(d_f1):.4f}"
+                add_p(doc, f"由表 1 可见：注意力池化与均值池化在该任务上性能接近"
+                           f"（短信文本较短、平均 25.6 字，长程依赖有限）；类别加权"
+                           f"损失对正负样本不均衡（垃圾短信仅占 10%）问题具有缓解"
+                           f"作用——{rec_desc}，{f1_desc}。", indent=True)
+        else:
+            add_p(doc, "由表 1 可见：注意力池化与均值池化在该任务上性能接近，"
+                       "这是因为短信文本较短（平均 25.6 字）、长程依赖有限，"
+                       "两者均能有效聚合序列信息。", indent=True)
     add_img(doc, os.path.join(FIG_DIR, "training_curves.png"), 15.5,
             "图 6  深度学习模型验证集训练曲线")
 
@@ -351,12 +377,17 @@ def build_report(doc):
               [4.2, 1.8, 1.9, 1.6, 1.6, 1.6, 2.4, 1.9])
     add_p(doc, "表 2  各模型在测试集上的性能对比（垃圾短信为正类）", size=9,
           align=WD_ALIGN_PARAGRAPH.CENTER)
-    add_p(doc, f"由表 2 可见：深度学习模型普遍优于传统机器学习基线；在所有模型中，"
-               f"混合模型取得了最高的 F1（{fmt(best['test']['f1'])}）与 AUC"
-               f"（{fmt(best['test']['auc'])}）。"
-               f"传统方法中，线性 SVM 与逻辑回归性能接近，朴素贝叶斯因特征独立性"
-               f"假设过强而相对落后。字符级特征在中文短信上表现稳健，其性能与词级"
-               f"特征相当甚至更好，且无需分词、工程开销更小。",
+    add_p(doc, f"由表 2 可见：传统机器学习基线在该数据集上表现极强，字级 TF-IDF + "
+               f"线性 SVM 以 F1={fmt(max(r['test']['f1'] for r in rows))} 位居第一；"
+               f"深度学习模型中，混合模型取得了最高的 F1（{fmt(best_dl['test']['f1'])}）"
+               f"与最接近的差距。进一步观察 Precision 与 Recall 的权衡：线性 SVM "
+               f"精确率最高（{fmt(max(r['test']['precision'] for r in rows))}，误报"
+               f"最少），而深度模型（尤其 Transformer 与 BiLSTM）召回率更高"
+               f"（最高 {fmt(max(r['test']['recall'] for r in rows))}，漏判更少）——"
+               f"这说明两类方法学到的判别边界不同，实际部署中可按业务对误报/漏判的"
+               f"代价偏好选择模型或调整决策阈值。特征粒度方面，字符级特征整体优于"
+               f"词级特征（无需分词、工程开销小），符合中文短信中短文本 n-gram "
+               f"判别性强的特点。",
           indent=True)
     add_img(doc, os.path.join(FIG_DIR, "roc_curves.png"), 12.5,
             "图 7  各模型 ROC 曲线对比")
@@ -366,11 +397,30 @@ def build_report(doc):
     add_p(doc, "混淆矩阵显示，各模型的误判主要集中在少数语义模糊的短信上："
                "一类是伪装成正常通知的诈骗短信（假阴性，漏判），另一类是包含敏感词"
                "的正常对话（假阳性，误报）。垃圾短信漏判的代价通常高于误报，"
-               "因此后续工作可在加权损失的基础上进一步调整决策阈值。", indent=True)
+               "因此后续工作可在加权损失的基础上进一步调整决策阈值。更深入的数据"
+               "层面的误判成因分析见 6.3 节。", indent=True)
 
     err_file = os.path.join(FIG_DIR, "error_analysis.txt")
+    add_heading(doc, "6.3 数据洞察与模型局限", 2)
+    add_p(doc, "在实验过程中我们对数据集做了进一步的探索性分析，发现一个重要的数据"
+               "特性：训练集中正常短信类几乎不含标点符号（含“，”的比例为 0.0%、"
+               "含“。”为 0.0%、含“！”为 0.0%），而垃圾短信中 82.9% 含有“，”、"
+               "37.4% 含有“。”、43.3% 含有“！”。这是因为正常短信多采集自口语化聊天"
+               "文本（无标点），而垃圾短信多为带完整标点的广告/诈骗模板。",
+          indent=True)
+    add_p(doc, "该特性意味着“是否含标点”在本数据集中是近乎完美的判别特征，测试集上"
+               "的高指标（F1≈0.99）有一部分来自这一数据偏差。我们用手工构造的"
+               "样例验证了这一点：带标点的口语化正常短信（如“明天下午三点会议室开会，"
+               "收到请回复”）会被模型以极高置信度误判为垃圾短信，而去掉标点后即可"
+               "正确判定。这说明模型学到了模板化的浅层特征。",
+          indent=True)
+    add_p(doc, "局限与改进方向：① 部署到真实场景（现代短信普遍带标点）前，应补充"
+               "带标点的正常短信样本做微调或重训练；② 可采用对抗训练、标点掩码"
+               "数据增强等手段削弱对单一浅层特征的依赖；③ 该发现同时提示，"
+               "评估文本分类模型时应关注数据偏差对指标的影响。", indent=True)
+
     if os.path.exists(err_file):
-        add_heading(doc, "6.3 错误分析", 2)
+        add_heading(doc, "6.4 错误分析", 2)
         with open(err_file, encoding="utf-8") as f:
             err_text = f.read().strip().split("\n")
         for line in err_text[:16]:
@@ -383,23 +433,30 @@ def build_report(doc):
         "模型与 4 种深度学习模型（含字符级/词级两种特征粒度），给出量化指标与"
         "可视化结果；",
         "② 局部+全局特征融合的混合模型：提出 BiLSTM 与 TextCNN 共享嵌入的双通道"
-        "结构，兼顾短信文本的全局语义与局部 n-gram 特征，取得最优性能；",
+        "结构，兼顾短信文本的全局语义与局部 n-gram 特征，取得深度学习模型中的"
+        "最优性能，与最强传统基线基本持平；",
         "③ 针对类别不平衡的损失设计：按正负样本比设置 pos_weight 的加权二分类"
-        "交叉熵，并通过消融实验验证其对召回率的提升；",
+        "交叉熵，并通过消融实验对比其影响；",
         "④ 注意力池化机制：用可学习的注意力权重替代均值池化，模型可自适应地"
         "关注判定垃圾短信的关键字符，提升可解释性；",
         "⑤ 完整可复现的工程实现：固定随机种子、分层划分数据、early stopping 与"
-        "学习率调度，全部代码开源（含数据下载、预处理、训练、评估、推理全流程）。",
+        "学习率调度、断点续训支持，全部代码开源（含数据下载、预处理、训练、"
+        "评估、推理全流程）。",
+        "⑥ 数据洞察与偏差分析：通过探索性分析发现数据集“正常短信几乎不含标点”"
+        "的标注偏差，并用手工样例验证了模型对浅层特征（标点）的依赖，指出"
+        "高指标背后的数据成因，为模型部署与改进指明方向。",
     ]:
         add_p(doc, item, size=10.5)
 
     # ================= 八、总结 =================
     add_heading(doc, "八、总结", 1)
     add_p(doc, f"本项目完成了垃圾短信识别任务的全流程实践：构建了约 {stats['n_clean']:,} "
-               f"条的中文短信数据集并完成清洗与划分；实现了 7 种分类模型并系统对比。"
-               f"实验表明，BiLSTM+TextCNN 混合模型表现最优（F1={fmt(best['test']['f1'])}, "
-               f"AUC={fmt(best['test']['auc'])}），显著优于 TF-IDF 机器学习基线。"
-               f"通过消融实验验证了注意力池化与类别加权损失的有效性。",
+               f"条的中文短信数据集并完成清洗与划分；实现并系统对比了 7 种分类模型。"
+               f"实验表明：字级 TF-IDF + 线性 SVM 取得最优 F1（{fmt(best['test']['f1'])}），"
+               f"而 BiLSTM+TextCNN 混合模型是表现最好的深度学习模型"
+               f"（F1={fmt(best_dl['test']['f1'])}），与其基本持平；深度模型在召回率上"
+               f"更具优势（漏判更少），传统模型精确率更高（误报更少），两类方法形成"
+               f"互补。通过消融实验分析了池化方式与类别加权损失的作用。",
           indent=True)
     add_p(doc, "不足与展望：① 数据集中部分垃圾短信与正常短信语义高度接近，可引入"
                "预训练语言模型（如 BERT/RoBERTa）进一步提升；② 可对垃圾短信做细粒度"

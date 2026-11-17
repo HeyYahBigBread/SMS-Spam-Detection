@@ -79,11 +79,16 @@ def main():
                     help="从已有 checkpoint 断点续训")
     ap.add_argument("--tag-suffix", default="",
                     help="结果文件 tag 后缀（消融实验用，如 meanpool）")
+    ap.add_argument("--device", default="auto", choices=["auto", "cpu", "cuda"],
+                    help="训练设备（auto 自动选择）")
     ap.add_argument("--seed", type=int, default=42)
     args = ap.parse_args()
 
     set_seed(args.seed)
-    device = get_device()
+    if args.device == "auto":
+        device = get_device()
+    else:
+        device = torch.device(args.device)
     print(f"设备: {device}")
 
     vocab = load_json(os.path.join(args.data_dir,
@@ -151,15 +156,20 @@ def main():
             optimizer.load_state_dict(ckpt["optimizer"])
         if "scheduler" in ckpt:
             scheduler.load_state_dict(ckpt["scheduler"])
-        if os.path.exists(progress_path):
-            prog = load_json(progress_path)
-            start_epoch = prog["epoch"] + 1
-            best_val_f1 = prog["best_val_f1"]
-            best_epoch = prog["best_epoch"]
         if os.path.exists(hist_path):
             with open(hist_path, encoding="utf-8") as f:
                 reader = csv.DictReader(f)
                 history = list(reader)
+        if history:
+            # 以历史记录为准：从最后一个已完成轮次的下一轮继续
+            start_epoch = int(history[-1]["epoch"]) + 1
+            best_val_f1 = max(float(h["val_f1"]) for h in history)
+            best_epoch = max(history, key=lambda h: float(h["val_f1"]))["epoch"]
+        elif os.path.exists(progress_path):
+            prog = load_json(progress_path)
+            start_epoch = prog["epoch"] + 1
+            best_val_f1 = prog["best_val_f1"]
+            best_epoch = prog["best_epoch"]
         print(f"    断点续训：从第 {start_epoch} 轮继续 "
               f"(best_val_f1={best_val_f1:.4f} @ epoch {best_epoch})")
 

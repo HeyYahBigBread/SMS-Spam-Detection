@@ -20,12 +20,15 @@ from models import get_model
 def load_model(model_path, device):
     ckpt = torch.load(model_path, map_location=device)
     args = ckpt["args"]
+    args["max_len"] = ckpt["max_len"]
+    args["vocab_size"] = ckpt["vocab_size"]
     model = get_model(args["model"], ckpt["vocab_size"],
                       emb_dim=args["emb_dim"], hidden=args["hidden"],
                       num_layers=args["num_layers"], num_heads=args["num_heads"],
                       dim_ff=args["dim_ff"], dropout=args["dropout"],
                       pool=args.get("pool", "attn"))
     model.load_state_dict(ckpt["model"])
+    model.to(device)
     model.eval()
     return model, args
 
@@ -49,15 +52,15 @@ def main():
                     default="results/models/bilstm_char_best.pt")
     ap.add_argument("--data-dir", default="data/processed")
     ap.add_argument("--threshold", type=float, default=0.5)
+    ap.add_argument("--device", default="auto", choices=["auto", "cpu", "cuda"])
     args = ap.parse_args()
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = (torch.device(args.device) if args.device != "auto"
+              else torch.device("cuda" if torch.cuda.is_available() else "cpu"))
     model, cfg = load_model(args.model_path, device)
     vocab = load_json(os.path.join(args.data_dir,
                                    f"vocab_{cfg['level']}.json"))
     max_len = cfg["max_len"]
-    print(f"模型: {cfg['model']}({cfg['level']}级), "
-          f"词表 {cfg['vocab_size']}, 设备: {device}")
 
     def judge(text):
         p = predict(model, vocab, text, max_len, device)
