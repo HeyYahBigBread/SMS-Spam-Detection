@@ -75,6 +75,8 @@ def main():
                     help="BiLSTM 池化方式（消融实验用）")
     ap.add_argument("--no-pos-weight", action="store_true",
                     help="关闭类别不平衡加权（消融实验用）")
+    ap.add_argument("--resume", action="store_true",
+                    help="从已有 checkpoint 断点续训")
     ap.add_argument("--seed", type=int, default=42)
     args = ap.parse_args()
 
@@ -133,12 +135,33 @@ def main():
     os.makedirs(args.out_dir, exist_ok=True)
     hist_path = os.path.join(args.out_dir, f"{tag}_history.csv")
     ckpt_path = os.path.join(args.out_dir, f"{tag}_best.pt")
+    progress_path = os.path.join(args.out_dir, f"{tag}_progress.json")
 
-    print(f"[3/4] 开始训练 {args.epochs} 轮 ...")
-    best_val_f1, best_epoch, bad_epochs = 0.0, 0, 0
-    t0 = time.time()
+    # ---------- 断点续训 ----------
+    start_epoch, best_val_f1, best_epoch, bad_epochs = 1, 0.0, 0, 0
     history = []
-    for epoch in range(1, args.epochs + 1):
+    if args.resume and os.path.exists(ckpt_path):
+        ckpt = torch.load(ckpt_path, map_location=device)
+        model.load_state_dict(ckpt["model"])
+        if "optimizer" in ckpt:
+            optimizer.load_state_dict(ckpt["optimizer"])
+        if "scheduler" in ckpt:
+            scheduler.load_state_dict(ckpt["scheduler"])
+        if os.path.exists(progress_path):
+            prog = load_json(progress_path)
+            start_epoch = prog["epoch"] + 1
+            best_val_f1 = prog["best_val_f1"]
+            best_epoch = prog["best_epoch"]
+        if os.path.exists(hist_path):
+            with open(hist_path, encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                history = list(reader)
+        print(f"    断点续训：从第 {start_epoch} 轮继续 "
+              f"(best_val_f1={best_val_f1:.4f} @ epoch {best_epoch})")
+
+    print(f"[3/4] 开始训练（第 {start_epoch}~{args.epochs} 轮）...")
+    t0 = time.time()
+    for epoch in range(start_epoch, args.epochs + 1):
         model.train()
         tot_loss, n_batch = 0.0, 0
         for x, y in train_loader:
@@ -165,9 +188,14 @@ def main():
         flag = ""
         if m_val["f1"] > best_val_f1:
             best_val_f1, best_epoch, bad_epochs = m_val["f1"], epoch, 0
-            torch.save({"model": model.state_dict(), "args": vars(args),
-                        "vocab_size": len(vocab), "max_len": max_len},
+            torch.save({"model": model.state_dict(),
+                        "optimizer": optimizer.state_dict(),
+                        "scheduler": scheduler.state_dict(),
+                        "args": vars(args), "vocab_size": len(vocab),
+                        "max_len": max_len},
                        ckpt_path)
+            save_json({"epoch": epoch, "best_val_f1": best_val_f1,
+                       "best_epoch": best_epoch}, progress_path)
             flag = " *"
         else:
             bad_epochs += 1
@@ -181,10 +209,11 @@ def main():
     print(f"    训练耗时 {train_time:.1f}s，最佳轮次 {best_epoch}")
 
     # 写入训练历史
-    with open(hist_path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=history[0].keys())
-        writer.writeheader()
-        writer.writerows(history)
+    if history:
+        with open(hist_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=history[0].keys())
+            writer.writeheader()
+            writer.writerows(history)
 
     # ---------- 测试集评估 ----------
     print("[4/4] 测试集评估 ...")
