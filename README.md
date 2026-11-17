@@ -1,0 +1,109 @@
+# 垃圾短信识别（SMS Spam Detection）
+
+《深度学习实践》课程大作业 · 基础题第 2 题：识别短信是否为广告、诈骗等垃圾短信。
+
+本项目对比了 **传统机器学习**（TF-IDF + 朴素贝叶斯 / 逻辑回归 / 线性 SVM）与
+**深度学习**（BiLSTM、TextCNN、Transformer、BiLSTM+TextCNN 混合模型）在
+中文垃圾短信识别任务上的表现。
+
+## 环境
+
+- Python 3.10（conda 环境 `pytorch`）
+- PyTorch 2.x（CUDA 可用，本项目使用 RTX 5070 Laptop GPU 训练）
+- 依赖安装：`pip install -r requirements.txt`
+
+## 数据集
+
+**来源**：中文垃圾短信数据集（约 80 万条带标签短信），由
+[hrwhisper/SpamMessage](https://github.com/hrwhisper/SpamMessage) 公开提供
+（原始数据出自某互联网短信语料库，标签 0=正常短信，1=垃圾短信）。
+
+**下载**（任选其一）：
+
+```bash
+# 直接下载
+curl -L -o data/raw/labeled_sms.txt \
+  "https://gh-proxy.com/https://raw.githubusercontent.com/hrwhisper/SpamMessage/master/data/%E5%B8%A6%E6%A0%87%E7%AD%BE%E7%9F%AD%E4%BF%A1.txt"
+
+# 或从 GitHub 仓库获取 data/带标签短信.txt（58MB）
+```
+
+原始格式：每行 = 标签（首字符 0/1） + 短信文本。
+
+**预处理**（`src/preprocess.py`）：
+
+1. 清洗：去除 URL、控制字符，压缩空白；
+2. 过滤：删除长度 < 2 的文本；同一文本若标签冲突则剔除，其余去重；
+3. 划分：按标签分层抽样，train : val : test = 8 : 1 : 1（固定随机种子 42）；
+4. 词表：字符级词表（min_freq=2）与 jieba 词级词表（min_freq=2）；
+5. 序列长度：字符级截断/填充到 100，词级 80。
+
+## 模型
+
+| 类型 | 模型 | 说明 |
+| --- | --- | --- |
+| 传统 ML | 朴素贝叶斯 / 逻辑回归 / 线性 SVM | TF-IDF 特征（字符 n-gram 1~3 或 jieba 分词） |
+| 深度学习 | BiLSTM | 双层双向 LSTM + 注意力池化 |
+| 深度学习 | TextCNN | 多卷积核 (2,3,4,5) + 最大池化 |
+| 深度学习 | Transformer | 位置编码 + 2 层 TransformerEncoder + 掩码均值池化 |
+| 深度学习 | Hybrid | BiLSTM 与 TextCNN 双通道特征融合 |
+
+## 运行
+
+```bash
+# 1. 预处理（清洗、划分、构建词表）
+python src/preprocess.py
+
+# 2. 传统机器学习基线
+python src/train_ml.py --level char --models nb,lr,svm
+python src/train_ml.py --level word --models nb,lr,svm
+
+# 3. 深度学习模型（可选 --model bilstm/textcnn/transformer/hybrid）
+python src/train_dl.py --model bilstm --level char --epochs 10 --batch-size 512 --lr 1e-3
+python src/train_dl.py --model textcnn --level char
+python src/train_dl.py --model transformer --level char
+python src/train_dl.py --model hybrid --level char
+
+# 4. 汇总评估与可视化（对比表、ROC、混淆矩阵、训练曲线）
+python src/evaluate.py
+
+# 5. 模型结构图
+python src/plot_arch.py
+
+# 6. 推理演示
+python src/predict.py --text "恭喜您中奖啦！点击链接领取万元奖金"
+python src/predict.py --interactive
+```
+
+## 目录结构
+
+```
+├── data/
+│   ├── raw/                # 原始数据集（不入库）
+│   └── processed/          # 清洗划分后的数据与词表
+├── src/
+│   ├── common.py           # 工具函数（词表、数据集、指标）
+│   ├── preprocess.py       # 数据预处理
+│   ├── models.py           # 深度学习模型定义
+│   ├── train_ml.py         # 机器学习基线训练
+│   ├── train_dl.py         # 深度学习模型训练
+│   ├── evaluate.py         # 统一评估与可视化
+│   ├── plot_arch.py        # 模型结构图
+│   └── predict.py          # 推理演示
+├── results/                # 结果（指标、图表、模型权重）
+├── report/                 # 大作业报告（Word）
+├── requirements.txt
+└── README.md
+```
+
+## 结果概览
+
+完整对比见 `results/figures/comparison.csv` 与大作业报告。
+主要评价指标：Accuracy、Precision、Recall、F1、AUC（垃圾短信为正类）。
+
+## 参考资料与引用
+
+- 数据集：[hrwhisper/SpamMessage](https://github.com/hrwhisper/SpamMessage)（中文垃圾短信识别）
+- Kim, Y. (2014). Convolutional Neural Networks for Sentence Classification. EMNLP.
+- Hochreiter, S. & Schmidhuber, J. (1997). Long Short-Term Memory.
+- Vaswani, A. et al. (2017). Attention Is All You Need. NeurIPS.

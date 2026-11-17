@@ -1,0 +1,16 @@
+# 数据（原始数据较大，不入库，见 README 下载说明）
+data/raw/
+data/processed/
+# 训练产物
+results/models/*.pt
+results/models/*.npz
+results/ml/*.npz
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+# 临时文件
+pdf_text*.txt
+*.log
+# 作业说明 PDF 不入库
+《深度学习实践》大作业.pdf
