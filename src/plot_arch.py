@@ -65,22 +65,23 @@ def draw_bilstm(path):
 
 
 def draw_textcnn(path):
-    ax = _new_ax((7.5, 5.2))
-    _box(ax, 0.3, 6.4, 2.0, 1.8, "输入短信\n(字符/词 ID 序列)", C_IO, 9)
-    _box(ax, 3.1, 6.4, 2.0, 1.8, "Embedding\n128 维", C_EMB, 9)
+    ax = _new_ax((9.5, 5.6))
+    _box(ax, 0.3, 8.2, 2.0, 1.3, "输入短信\n(字符/词 ID 序列)", C_IO, 9)
+    _box(ax, 4.0, 8.2, 2.0, 1.3, "Embedding\n128 维", C_EMB, 9)
+    xs = [0.3, 2.7, 5.1, 7.5]
     for i, k in enumerate([2, 3, 4, 5]):
-        y = 4.8 - i * 1.1
-        _box(ax, 5.9, y, 2.6, 0.9, f"卷积核 k={k} (128 通道)", C_CNN, 8.5)
-    _box(ax, 5.9, 0.5, 2.6, 1.0, "最大池化拼接", C_CNN, 8.5)
-    _box(ax, 3.1, 0.5, 2.0, 1.0, "全连接层\nDropout → 64 → 1", C_FC, 8.5)
-    _box(ax, 0.3, 0.5, 2.0, 1.0, "sigmoid:\n垃圾短信概率", C_IO, 8.5)
-    _arrow(ax, 2.3, 7.3, 3.1, 7.3)
-    _arrow(ax, 5.1, 7.3, 5.9, 7.3)
+        _box(ax, xs[i], 6.0, 2.0, 1.1, f"卷积核 k={k}\n(128 通道)", C_CNN, 8.5)
+        _arrow(ax, 5.0, 8.2, xs[i] + 1.0, 7.1)
+        _box(ax, xs[i], 4.2, 2.0, 0.9, "最大池化", C_CNN, 8.5)
+        _arrow(ax, xs[i] + 1.0, 6.0, xs[i] + 1.0, 5.1)
+    _box(ax, 3.0, 2.4, 4.0, 1.1, "特征拼接 (4×128 维)", C_FC, 9)
     for i in range(4):
-        y = 5.25 - i * 1.1
-        _arrow(ax, 5.9, y + 0.9, 5.9, 1.0)
-    _arrow(ax, 5.9, 0.5, 5.1, 1.0)
-    _arrow(ax, 3.1, 1.0, 2.3, 1.0)
+        _arrow(ax, xs[i] + 1.0, 4.2, xs[i] + 1.0, 3.5)
+    _box(ax, 3.3, 0.7, 3.4, 1.1, "全连接层 Dropout → 64 → 1", C_FC, 8.5)
+    _arrow(ax, 5.0, 2.4, 5.0, 1.8)
+    _box(ax, 3.3, -0.5, 3.4, 0.9, "sigmoid: 垃圾短信概率", C_IO, 8.5)
+    _arrow(ax, 5.0, 0.7, 5.0, 0.4)
+    _arrow(ax, 2.3, 8.85, 4.0, 8.85)
     plt.tight_layout()
     plt.savefig(path, dpi=200, bbox_inches="tight")
     plt.close()

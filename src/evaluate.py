@@ -75,13 +75,7 @@ def plot_roc_curves(rows, fig_dir):
                                f"{r['model']}_{r['level']}_test_pred.npz")
         else:
             npz = os.path.join("results", "ml",
-                               f"{r['level']}_{r['model'].lower()}_test_pred.npz")
-        # 与 train_ml 的命名一致（nb/lr/svm）
-        if not os.path.exists(npz) and "params" not in r:
-            for cand in glob.glob(os.path.join("results", "ml",
-                                               f"{r['level']}_*_test_pred.npz")):
-                if r["model"].split("(")[0].lower() in cand:
-                    npz = cand
+                               f"{r.get('tag', r['level'] + '_' + r['model'])}_test_pred.npz")
         if not os.path.exists(npz):
             continue
         d = np.load(npz)

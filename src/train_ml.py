@@ -18,7 +18,7 @@ from sklearn.naive_bayes import MultinomialNB
 from sklearn.svm import LinearSVC
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import compute_metrics, save_json, set_seed
+from common import compute_metrics, save_json, set_seed, load_json
 
 MODELS = {
     "nb": ("MultinomialNB", MultinomialNB()),
@@ -76,7 +76,12 @@ def main():
     y_val = val["label"].values
     y_test = test["label"].values
 
-    summary = {}
+    # 合并已有的 summary（避免字级/词级结果互相覆盖）
+    summary_path = os.path.join(args.out_dir, "summary.json")
+    if os.path.exists(summary_path):
+        summary = load_json(summary_path)
+    else:
+        summary = {}
     for name in args.models.split(","):
         dname, clf = MODELS[name]
         print(f"[2/3] 训练 {dname} ...")
@@ -85,8 +90,12 @@ def main():
         fit_time = time.time() - t0
 
         t0 = time.time()
-        s_val = clf.decision_function(X_val)
-        s_test = clf.decision_function(X_test)
+        if hasattr(clf, "decision_function"):
+            s_val = clf.decision_function(X_val)
+            s_test = clf.decision_function(X_test)
+        else:  # 朴素贝叶斯
+            s_val = clf.predict_proba(X_val)[:, 1]
+            s_test = clf.predict_proba(X_test)[:, 1]
         infer_time = time.time() - t0
 
         from sklearn.preprocessing import MinMaxScaler
@@ -102,6 +111,7 @@ def main():
         np.savez(os.path.join(args.out_dir, f"{tag}_test_pred.npz"),
                  y=y_test, pred=p_test, score=score_test)
         summary[tag] = {
+            "tag": tag,
             "model": dname, "level": args.level,
             "n_features": int(X_train.shape[1]),
             "fit_time_s": round(fit_time, 1),
