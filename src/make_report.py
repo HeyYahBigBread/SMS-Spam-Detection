@@ -322,12 +322,20 @@ def build_report(doc):
              "BiLSTM（注意力池化，无类别加权）"]
     abl_variants.sort(key=lambda x: order.index(x[0]) if x[0] in order else 99)
     if abl_variants:
+        import csv as _csv
         abl_rows = []
         for variant, r in abl_variants:
-            t, v = r["test"], r.get("val", {})
+            t = r["test"]
+            val_f1 = None
+            r_tag = r.get("tag") or f"{r.get('model', '')}_{r.get('level', '')}"
+            hist_path = os.path.join(MODEL_DIR, f"{r_tag}_history.csv")
+            if os.path.exists(hist_path):
+                with open(hist_path, encoding="utf-8") as f:
+                    val_f1 = max(float(h["val_f1"])
+                                 for h in _csv.DictReader(f))
             abl_rows.append([variant, fmt(t["f1"]), fmt(t["recall"]),
                              fmt(t["precision"]), fmt(t["accuracy"]),
-                             fmt(v.get("f1"), 4)])
+                             fmt(val_f1, 4)])
         add_table(doc,
                   ["配置", "测试 F1", "测试 Recall", "测试 Precision",
                    "测试 Accuracy", "验证 F1"],
@@ -340,15 +348,20 @@ def build_report(doc):
             no_w_row = next((r for v, r in abl_variants if "无类别加权" in v), None)
             if weight_row and no_w_row:
                 d_rec = weight_row["test"]["recall"] - no_w_row["test"]["recall"]
+                d_pre = weight_row["test"]["precision"] - no_w_row["test"]["precision"]
                 d_f1 = weight_row["test"]["f1"] - no_w_row["test"]["f1"]
-                rec_desc = f"去掉加权后召回率下降 {abs(d_rec):.4f}" if d_rec > 0 \
-                    else f"去掉加权后召回率反而上升 {abs(d_rec):.4f}"
-                f1_desc = f"F1 下降 {abs(d_f1):.4f}" if d_f1 > 0 \
-                    else f"F1 上升 {abs(d_f1):.4f}"
-                add_p(doc, f"由表 1 可见：注意力池化与均值池化在该任务上性能接近"
-                           f"（短信文本较短、平均 25.6 字，长程依赖有限）；类别加权"
-                           f"损失对正负样本不均衡（垃圾短信仅占 10%）问题具有缓解"
-                           f"作用——{rec_desc}，{f1_desc}。", indent=True)
+                rec_dir = "提升" if d_rec > 0 else "降低"
+                pre_dir = "降低" if d_pre < 0 else "提升"
+                f1_dir = "提升" if d_f1 > 0 else "降低"
+                add_p(doc, f"由表 1 可见：① 注意力池化与均值池化在该任务上性能接近"
+                           f"（短信文本较短、平均 25.6 字，长程依赖有限）；② 类别"
+                           f"加权损失以牺牲精确率为代价换取了召回率——去掉加权后"
+                           f"召回率{rec_dir} {abs(d_rec):.4f}、精确率{pre_dir} "
+                           f"{abs(d_pre):.4f}、F1 {f1_dir} {abs(d_f1):.4f}。"
+                           f"这说明加权损失改变了正负类的决策边界偏向，实际部署时"
+                           f"可按业务对漏判/误报的代价偏好决定是否使用；在本数据集"
+                           f"上（垃圾短信占 10%），不加权的模型综合表现已足够好。",
+                           indent=True)
         else:
             add_p(doc, "由表 1 可见：注意力池化与均值池化在该任务上性能接近，"
                        "这是因为短信文本较短（平均 25.6 字）、长程依赖有限，"
