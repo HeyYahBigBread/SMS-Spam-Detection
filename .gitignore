@@ -14,3 +14,6 @@ pdf_text*.txt
 *.log
 # 作业说明 PDF 不入库
 《深度学习实践》大作业.pdf
+
+# IDE 配置
+.idea/
