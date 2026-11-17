@@ -1,0 +1,39 @@
+{
+  "model": "bilstm",
+  "level": "char",
+  "params": 3236226,
+  "best_epoch": 5,
+  "train_time_s": 731.0,
+  "test": {
+    "accuracy": 0.9977366935381329,
+    "precision": 0.9881268157130226,
+    "recall": 0.9893765018338181,
+    "f1": 0.9887512639029322,
+    "tn_fp_fn_tp": [
+      70645,
+      94,
+      84,
+      7823
+    ],
+    "auc": 0.9995897454861405
+  },
+  "hyperparams": {
+    "model": "bilstm",
+    "level": "char",
+    "epochs": 10,
+    "batch_size": 512,
+    "lr": 0.001,
+    "weight_decay": 1e-05,
+    "dropout": 0.3,
+    "emb_dim": 128,
+    "hidden": 128,
+    "num_layers": 2,
+    "num_heads": 4,
+    "dim_ff": 256,
+    "patience": 3,
+    "pool": "attn",
+    "no_pos_weight": false,
+    "resume": true,
+    "seed": 42
+  }
+}

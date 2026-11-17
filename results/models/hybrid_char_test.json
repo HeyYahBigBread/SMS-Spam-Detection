@@ -1,0 +1,39 @@
+{
+  "model": "hybrid",
+  "level": "char",
+  "params": 3498882,
+  "best_epoch": 8,
+  "train_time_s": 3349.9,
+  "test": {
+    "accuracy": 0.9981817257076011,
+    "precision": 0.9930149860299721,
+    "recall": 0.9888706209687619,
+    "f1": 0.990938470312401,
+    "tn_fp_fn_tp": [
+      70684,
+      55,
+      88,
+      7819
+    ],
+    "auc": 0.9995416006656912
+  },
+  "hyperparams": {
+    "model": "hybrid",
+    "level": "char",
+    "epochs": 10,
+    "batch_size": 512,
+    "lr": 0.001,
+    "weight_decay": 1e-05,
+    "dropout": 0.3,
+    "emb_dim": 128,
+    "hidden": 128,
+    "num_layers": 2,
+    "num_heads": 4,
+    "dim_ff": 256,
+    "patience": 3,
+    "pool": "attn",
+    "no_pos_weight": false,
+    "resume": false,
+    "seed": 42
+  }
+}

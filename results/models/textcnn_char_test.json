@@ -1,0 +1,39 @@
+{
+  "model": "textcnn",
+  "level": "char",
+  "params": 2822785,
+  "best_epoch": 9,
+  "train_time_s": 502.3,
+  "test": {
+    "accuracy": 0.9980418584543397,
+    "precision": 0.9931306449561125,
+    "recall": 0.987352978373593,
+    "f1": 0.9902333840690005,
+    "tn_fp_fn_tp": [
+      70685,
+      54,
+      100,
+      7807
+    ],
+    "auc": 0.9995344314158117
+  },
+  "hyperparams": {
+    "model": "textcnn",
+    "level": "char",
+    "epochs": 10,
+    "batch_size": 512,
+    "lr": 0.001,
+    "weight_decay": 1e-05,
+    "dropout": 0.3,
+    "emb_dim": 128,
+    "hidden": 128,
+    "num_layers": 2,
+    "num_heads": 4,
+    "dim_ff": 256,
+    "patience": 3,
+    "pool": "attn",
+    "no_pos_weight": false,
+    "resume": false,
+    "seed": 42
+  }
+}

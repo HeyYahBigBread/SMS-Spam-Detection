@@ -26,6 +26,14 @@ plt.rcParams["axes.unicode_minus"] = False
 
 METRIC_KEYS = ["accuracy", "precision", "recall", "f1", "auc"]
 
+ABLATION_SUFFIXES = ("_meanpool", "_noweight")
+
+
+def is_ablation(row):
+    """消融实验的结果不进入主对比表。"""
+    tag = row.get("tag", "")
+    return any(tag.endswith(s) for s in ABLATION_SUFFIXES)
+
 
 def collect_results(results_dir):
     """收集 ML 与 DL 的全部测试集结果。"""
@@ -186,7 +194,8 @@ def main():
     if not rows:
         print("未找到结果文件，请先运行训练脚本")
         return
-    print(f"共收集 {len(rows)} 个模型结果")
+    rows = [r for r in rows if not is_ablation(r)]
+    print(f"共收集 {len(rows)} 个模型结果（不含消融实验）")
 
     df = build_comparison_table(rows)
     df.to_csv(os.path.join(args.fig_dir, "comparison.csv"),

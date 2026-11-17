@@ -77,6 +77,8 @@ def main():
                     help="关闭类别不平衡加权（消融实验用）")
     ap.add_argument("--resume", action="store_true",
                     help="从已有 checkpoint 断点续训")
+    ap.add_argument("--tag-suffix", default="",
+                    help="结果文件 tag 后缀（消融实验用，如 meanpool）")
     ap.add_argument("--seed", type=int, default=42)
     args = ap.parse_args()
 
@@ -132,6 +134,8 @@ def main():
         optimizer, mode="min", factor=0.5, patience=1)
 
     tag = f"{args.model}_{args.level}"
+    if args.tag_suffix:
+        tag = f"{tag}_{args.tag_suffix}"
     os.makedirs(args.out_dir, exist_ok=True)
     hist_path = os.path.join(args.out_dir, f"{tag}_history.csv")
     ckpt_path = os.path.join(args.out_dir, f"{tag}_best.pt")
@@ -225,6 +229,7 @@ def main():
     np.savez(os.path.join(args.out_dir, f"{tag}_test_pred.npz"),
              y=yt, pred=pt, score=st)
     save_json({
+        "tag": tag,
         "model": args.model, "level": args.level,
         "params": n_params,
         "best_epoch": best_epoch,

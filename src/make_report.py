@@ -48,6 +48,11 @@ def model_display(row):
     return f"{m}（{lvl}）"
 
 
+def is_ablation(row):
+    tag = row.get("tag", "")
+    return tag.endswith("_meanpool") or tag.endswith("_noweight")
+
+
 def collect_rows():
     rows = []
     if os.path.exists(ML_SUMMARY):
@@ -121,7 +126,8 @@ def add_table(doc, headers, data, col_widths=None):
 
 def build_report(doc):
     stats = load_json(DATA_STATS)
-    rows = collect_rows()
+    all_rows = collect_rows()
+    rows = [r for r in all_rows if not is_ablation(r)]
     rows.sort(key=lambda r: r["test"]["f1"], reverse=True)
     dl_rows = [r for r in rows if "params" in r]
     ml_rows = [r for r in rows if "params" not in r]
@@ -301,7 +307,7 @@ def build_report(doc):
 
     add_heading(doc, "5.1 消融实验", 2)
     abl_rows = []
-    for r in rows:
+    for r in all_rows:
         if not isinstance(r.get("hyperparams"), dict):
             continue
         hp = r["hyperparams"]
