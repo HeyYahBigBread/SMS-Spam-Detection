@@ -1,6 +1,6 @@
 # 垃圾短信识别（SMS Spam Detection）
 
-《深度学习实践》课程大作业 · 基础题第 2 题：识别短信是否为广告、诈骗等垃圾短信。
+《深度学习实践》课程大作业基础题第 2 题：识别短信是否为广告、诈骗等垃圾短信。
 
 本项目对比了 **传统机器学习**（TF-IDF + 朴素贝叶斯 / 逻辑回归 / 线性 SVM）与
 **深度学习**（BiLSTM、TextCNN、Transformer、BiLSTM+TextCNN 混合模型）在
@@ -8,8 +8,8 @@
 
 ## 环境
 
-- Python 3.10（conda 环境 `pytorch`）
-- PyTorch 2.x（CUDA 可用，本项目使用 RTX 5070 Laptop GPU 训练）
+- Python 3.10
+- PyTorch 2.x
 - 依赖安装：`pip install -r requirements.txt`
 
 ## 数据集
