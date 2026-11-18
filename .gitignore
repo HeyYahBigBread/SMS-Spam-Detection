@@ -17,3 +17,9 @@ pdf_text*.txt
 
 # IDE 配置
 .idea/
+
+# 报告与生成物（本地保留，不入库）
+report/
+results/
+src/make_report.py
+~
