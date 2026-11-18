@@ -75,30 +75,32 @@ python src/predict.py --text "恭喜您中奖啦！点击链接领取万元奖�
 python src/predict.py --interactive
 ```
 
+训练与评估的输出（模型权重、指标 JSON、图表）保存在 `results/` 目录
+（该目录不入库，可由上述命令随时重新生成）。
+
 ## 目录结构
 
 ```
-├── data/
-│   ├── raw/                # 原始数据集（不入库）
-│   └── processed/          # 清洗划分后的数据与词表
+├── data/                    # 数据集（不入库，见上方下载说明）
 ├── src/
-│   ├── common.py           # 工具函数（词表、数据集、指标）
-│   ├── preprocess.py       # 数据预处理
-│   ├── models.py           # 深度学习模型定义
-│   ├── train_ml.py         # 机器学习基线训练
-│   ├── train_dl.py         # 深度学习模型训练
-│   ├── evaluate.py         # 统一评估与可视化
-│   ├── plot_arch.py        # 模型结构图
-│   └── predict.py          # 推理演示
-├── results/                # 结果（指标、图表、模型权重）
-├── report/                 # 大作业报告（Word）
+│   ├── common.py            # 工具函数（词表、数据集、指标）
+│   ├── preprocess.py        # 数据预处理
+│   ├── models.py            # 深度学习模型定义
+│   ├── train_ml.py          # 机器学习基线训练
+│   ├── train_dl.py          # 深度学习模型训练（支持断点续训）
+│   ├── evaluate.py          # 统一评估与可视化
+│   ├── plot_arch.py         # 模型结构图
+│   ├── plot_data_stats.py   # 数据集统计图
+│   └── predict.py           # 推理演示
+├── demo_sms.txt             # 推理演示样例（前 5 条垃圾 / 后 5 条正常）
 ├── requirements.txt
 └── README.md
 ```
 
 ## 结果概览
 
-测试集（78,646 条）上各模型对比（完整结果见 `results/figures/comparison.csv`）：
+测试集（78,646 条）上各模型对比（运行 `python src/evaluate.py` 可复现全部
+指标与图表）：
 
 | 模型 | Accuracy | Precision | Recall | F1 | AUC |
 | --- | --- | --- | --- | --- | --- |
